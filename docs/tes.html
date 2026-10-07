@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Tes koneksi</title><meta name="theme-color" content="#1a73e8"><link rel="stylesheet" href="style.css">
+<style>.r{padding:10px 0;border-bottom:1px solid var(--line)}.r b.ok{color:var(--ok)}.r b.no{color:var(--err)}.r small{display:block;color:var(--mute);margin-top:2px;line-height:1.45}textarea{width:100%;box-sizing:border-box;min-height:70px;font:14px/1.4 inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}</style>
+<script src="config.js"></script></head><body><header class="bar"><h1>Tes koneksi</h1></header><div class="wrap">
+<div class="card"><label class="sub" for="u">Alamat Web app (berakhiran /exec)</label><textarea id="u" spellcheck="false" autocapitalize="off"></textarea><button class="main" id="go" style="margin-top:10px;width:100%">Tes sekarang</button></div>
+<div class="card" id="o"><div class="sub">Tekan Tes sekarang. Hasilnya muncul di sini.</div></div></div>
+<script>
+var u=document.getElementById('u'),o=document.getElementById('o'),go=document.getElementById('go');
+u.value=/^https/.test(window.API_URL||'')?window.API_URL:'';
+function line(ok,t,d){var r=document.createElement('div');r.className='r';var b=document.createElement('b');b.className=ok?'ok':'no';b.textContent=(ok?'Lulus: ':'Gagal: ')+t;r.appendChild(b);if(d){var s=document.createElement('small');s.textContent=d;r.appendChild(s)}o.appendChild(r)}
+var FIX='Perbaikan: di Apps Script buka Deploy > Manage deployments > ikon pensil. Atur Execute as: Me dan Who has access: Anyone. Pilih Version: New version, lalu Deploy.';
+function timeout(p,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej({name:'AbortError'})},ms);p.then(function(v){clearTimeout(t);res(v)},function(e){clearTimeout(t);rej(e)})})}
+go.onclick=function(){
+  o.textContent='';var a=u.value.trim().replace(/^["']|["']$/g,'');go.disabled=true;go.textContent='Menguji...';
+  function end(){go.disabled=false;go.textContent='Tes sekarang'}
+  if(!a||a.indexOf('PASTE_')>=0){line(0,'Alamat belum diisi','Isi alamat Web app di kolom atas, atau di file docs/config.js.');return end()}
+  if(a.indexOf('https://script.google.com/macros/s/')!==0){line(0,'Format alamat tidak dikenal','Alamat harus diawali https://script.google.com/macros/s/ . Pastikan yang disalin adalah alamat Web app dari Deploy, bukan alamat editor.');return end()}
+  if(/\/dev$/.test(a)){line(0,'Ini alamat uji (/dev)','Pakai alamat berakhiran /exec dari Deploy > Manage deployments.');return end()}
+  if(!/\/exec$/.test(a)){line(0,'Alamat tidak berakhiran /exec','Periksa lagi, jangan ada tambahan di belakang alamat.');return end()}
+  line(1,'Format alamat benar');
+  if(navigator.onLine===false){line(0,'HP tidak punya internet','Nyalakan data atau Wi-Fi lalu coba lagi.');return end()}
+  timeout(fetch(a+'?fn=apiView&arg=%22dashboard%22'),25000).then(function(r){return r.json()}).then(function(j){
+    if(j&&j.ok){line(1,'Membaca data berhasil','Mobil tercatat hari ini: '+((j.data&&j.data.kpi&&j.data.kpi.total)||0)+'.')}
+    else line(0,'Server aktif tapi menolak: '+((j&&j.error)||'tidak diketahui'),'Kalau menyebut tab tidak ada, jalankan menu Control Tower > Setup tab otomatis di Google Sheets.');
+    return timeout(fetch(a,{method:'POST',body:JSON.stringify({fn:'tes'})}),25000).then(function(r){return r.json()}).then(function(k){
+      if(k&&k.ok===false)line(1,'Mengirim data (POST) berhasil','Jalur simpan data terhubung.');else line(0,'Jalur POST tidak seperti yang diharapkan','Tempel ulang Code.gs terbaru lalu Deploy New version.')});
+  }).catch(function(e){
+    if(e&&e.name==='SyntaxError')line(0,'Server membalas halaman biasa, bukan data','Kemungkinan Code.gs di Apps Script masih versi lama (belum ada API) atau belum dibuat New version. Tempel ulang Code.gs terbaru, lalu Deploy New version.');
+    else line(0,'Browser tidak bisa membaca balasan server','Penyebab paling sering: akses deploy belum Anyone (Google meminta login) atau alamat salah. '+FIX);
+  }).then(end);
+};
+</script></body></html>
